@@ -26,5 +26,11 @@ FROM base AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app /app
+# pnpm 11 auto-runs `pnpm install` before every `pnpm run` to check whether
+# node_modules is in sync with the lockfile. In this image deps are already
+# installed and /app is owned by root while the container runs as uid 1001,
+# so that auto-install crashes with EACCES. Disable the check; the lockfile
+# is frozen at build time.
+RUN printf 'verify-deps-before-run=false\n' > /app/.npmrc
 EXPOSE 4001
 CMD ["node", "apps/backend/dist/processes/proc/web.js"]
