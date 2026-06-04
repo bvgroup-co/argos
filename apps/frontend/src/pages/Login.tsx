@@ -9,6 +9,7 @@ import { Alert, AlertText, AlertTitle } from "@/ui/Alert";
 import { BrandShield } from "@/ui/BrandShield";
 import { Container } from "@/ui/Container";
 import { Link } from "@/ui/Link";
+import { getOAuthURL } from "@/util/oauth";
 import { redirectToSAMLLogin } from "@/util/saml";
 
 export function Component() {
@@ -25,6 +26,11 @@ export function Component() {
 
   if (loggedIn) {
     return <Navigate to="/" replace />;
+  }
+
+  if (config.auth.loginMode === "oidc" && config.oidc.enabled && !error) {
+    window.location.replace(getOAuthURL({ provider: "oidc", redirect }));
+    return null;
   }
 
   // Skip the login form and redirect straight to SSO.
@@ -73,10 +79,12 @@ export function Component() {
           }}
         />
 
-        <p className="mt-8">
-          Don’t have an account?{" "}
-          <Link href={getSignupUrl({ email, redirect })}>Sign up</Link>
-        </p>
+        {config.email.enabled && (
+          <p className="mt-8">
+            Don’t have an account?{" "}
+            <Link href={getSignupUrl({ email, redirect })}>Sign up</Link>
+          </p>
+        )}
       </Container>
     </>
   );

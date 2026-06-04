@@ -14,12 +14,15 @@ import {
   getOrCreateUserAccountFromGhAccount,
   getOrCreateUserAccountFromGitlabUser,
   getOrCreateUserAccountFromGoogleUser,
+  getOrCreateUserAccountFromOidcIdentity,
   joinSSOTeams,
   markUserLastAuthMethod,
+  syncOidcTeamMemberships,
 } from "@/database/services/account";
 import { getOrCreateGhAccountFromGhProfile } from "@/database/services/github";
 import { getOrCreateGitlabUser } from "@/database/services/gitlabUser";
 import { getOrCreateGoogleUser } from "@/database/services/googleUser";
+import { getOrCreateOidcIdentity } from "@/database/services/oidcIdentity";
 import { hasAutoInviteForUser } from "@/database/services/team-domain";
 import {
   getTokenOctokit,
@@ -30,6 +33,15 @@ import {
   retrieveOAuthToken as retrieveGitlabOAuthToken,
 } from "@/gitlab";
 import { getGoogleAuthenticatedClient, getGoogleUserProfile } from "@/google";
+import {
+  discoverOidcProvider,
+  exchangeOidcCode,
+  getOidcUserProfile,
+  hashOidcCookieValue,
+  parseOidcGroupTeamMappings,
+  verifyOidcIdToken,
+} from "@/oidc";
+import { boom } from "@/util/error";
 
 import { allowApp } from "../middlewares/cors";
 import { allowOnlyPost } from "../middlewares/methods";
@@ -41,6 +53,7 @@ export default router;
 
 const OAuthBodySchema = z.object({
   code: z.string(),
+  state: z.string().optional(),
 });
 const SamlBodySchema = z.object({
   code: z.string(),
@@ -52,6 +65,23 @@ type OAuthResult = {
   creation: boolean;
 };
 
+function readCookie(header: string | undefined, name: string): string | null {
+  if (!header) {
+    return null;
+  }
+  for (const part of header.split(";")) {
+    const trimmed = part.trim();
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) {
+      continue;
+    }
+    if (trimmed.slice(0, eq) === name) {
+      return decodeURIComponent(trimmed.slice(eq + 1)) || null;
+    }
+  }
+  return null;
+}
+
 /**
  * Create an OAuth handler.
  */
@@ -59,6 +89,8 @@ function withOAuth(
   retrieveAccount: (
     body: OAuthBody,
     auth: AuthJWTPayload | null,
+    req: express.Request,
+    res: express.Response,
   ) => Promise<OAuthResult>,
 ): express.RequestHandler[] {
   return [
@@ -72,6 +104,8 @@ function withOAuth(
         const { account, creation } = await retrieveAccount(
           parsed,
           auth ?? null,
+          req,
+          res,
         );
         invariant(account.userId, "Expected account to have userId");
         const hasAutoInvite =
@@ -195,6 +229,74 @@ router.use(
       await markUserLastAuthMethod({
         userId: account.userId,
         method: "google",
+      });
+    }
+    return { account, creation };
+  }),
+);
+
+router.use(
+  "/auth/oidc",
+  withOAuth(async (body, auth, req, res) => {
+    if (!config.get("oidc.enabled")) {
+      throw boom(404, "OIDC authentication is disabled");
+    }
+    const state = body.state;
+    if (!state) {
+      throw boom(401, "Missing OIDC state");
+    }
+    const stateHash = readCookie(req.headers.cookie, "oidc_state");
+    const nonce = readCookie(req.headers.cookie, "oidc_nonce");
+    const codeVerifier = readCookie(req.headers.cookie, "oidc_code_verifier");
+    if (!stateHash || !nonce || !codeVerifier) {
+      throw boom(401, "Missing OIDC login session");
+    }
+    if (stateHash !== hashOidcCookieValue(state)) {
+      throw boom(401, "Invalid OIDC state");
+    }
+    res.clearCookie("oidc_state");
+    res.clearCookie("oidc_nonce");
+    res.clearCookie("oidc_code_verifier");
+    const discovery = await discoverOidcProvider(config.get("oidc.issuerUrl"));
+    const tokenResponse = await exchangeOidcCode({
+      discovery,
+      clientId: config.get("oidc.clientId"),
+      clientSecret: config.get("oidc.clientSecret"),
+      redirectUri: `${config.get("server.url")}/auth/oidc/callback`,
+      code: body.code,
+      codeVerifier,
+    });
+    const claims = await verifyOidcIdToken({
+      discovery,
+      clientId: config.get("oidc.clientId"),
+      idToken: tokenResponse.id_token,
+      nonce,
+    });
+    const profile = getOidcUserProfile({
+      claims,
+      groupsClaim: config.get("oidc.groupsClaim"),
+      requireVerifiedEmail: config.get("oidc.requireVerifiedEmail"),
+    });
+    const oidcIdentity = await getOrCreateOidcIdentity(profile, {
+      lastLoggedAt: new Date().toISOString(),
+    });
+    const { account, creation } = await getOrCreateUserAccountFromOidcIdentity({
+      oidcIdentity,
+      attachToAccount: auth?.account ?? null,
+    });
+    invariant(account.userId, "Expected account to have userId");
+    await syncOidcTeamMemberships({
+      userId: account.userId,
+      subject: profile.subject,
+      groups: profile.groups,
+      mappings: parseOidcGroupTeamMappings(
+        config.get("oidc.groupTeamMappings"),
+      ),
+    });
+    if (!auth) {
+      await markUserLastAuthMethod({
+        userId: account.userId,
+        method: "oidc",
       });
     }
     return { account, creation };

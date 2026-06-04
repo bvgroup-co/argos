@@ -68,7 +68,7 @@ function AuthCallback(props: { provider: AuthProvider }) {
     fetchApi<{ jwt: string; creation: boolean; hasAutoInvite: boolean }>(
       `/auth/${provider}`,
       {
-        data: { code },
+        data: { code, state },
         token: initialToken ?? undefined,
       },
     )
@@ -83,7 +83,7 @@ function AuthCallback(props: { provider: AuthProvider }) {
       .catch((error) => {
         setAuthError(error);
       });
-  }, [code, setToken, initialToken, provider, redirectUri]);
+  }, [code, setToken, initialToken, provider, redirectUri, state]);
 
   // If a authError is thrown, it will be caught by the ErrorBoundary.
   if (authError) {

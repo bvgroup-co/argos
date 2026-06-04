@@ -7,6 +7,7 @@ import { Comment } from "./Comment";
 import { CommentReaction } from "./CommentReaction";
 import { GitlabUser } from "./GitlabUser";
 import { GoogleUser } from "./GoogleUser";
+import { OidcIdentity } from "./OidcIdentity";
 import { Team } from "./Team";
 import { TeamInvite } from "./TeamInvite";
 import { UserAccessToken } from "./UserAccessToken";
@@ -26,6 +27,7 @@ export class User extends Model {
           },
           gitlabUserId: { type: ["string", "null"] },
           googleUserId: { type: ["string", "null"] },
+          oidcIdentityId: { type: ["string", "null"] },
           staff: { type: "boolean" },
           deletedAt: { type: ["string", "null"] },
           type: { type: "string", enum: ["user", "bot"] },
@@ -37,6 +39,7 @@ export class User extends Model {
   email!: string | null;
   gitlabUserId!: string | null;
   googleUserId!: string | null;
+  oidcIdentityId!: string | null;
   staff!: boolean;
   deletedAt!: string | null;
   type!: "user" | "bot";
@@ -92,6 +95,14 @@ export class User extends Model {
           to: "google_users.id",
         },
       },
+      oidcIdentity: {
+        relation: Model.HasOneRelation,
+        modelClass: OidcIdentity,
+        join: {
+          from: "users.oidcIdentityId",
+          to: "oidc_identities.id",
+        },
+      },
       emails: {
         relation: Model.HasManyRelation,
         modelClass: UserEmail,
@@ -142,6 +153,7 @@ export class User extends Model {
   ownedTeams?: Team[];
   gitlabUser?: GitlabUser;
   googleUser?: GoogleUser;
+  oidcIdentity?: OidcIdentity;
   emails?: UserEmail[];
   userAccessTokens?: UserAccessToken[];
   comments?: Comment[];

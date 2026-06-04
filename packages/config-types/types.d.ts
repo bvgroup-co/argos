@@ -9,6 +9,15 @@ export interface ClientConfig {
   session: {
     domain: string;
   };
+  email: {
+    enabled: boolean;
+  };
+  auth: {
+    loginMode: "default" | "oidc";
+  };
+  oidc: {
+    enabled: boolean;
+  };
   samlTeamSlug: string;
   releaseVersion: string;
   contactEmail: string;

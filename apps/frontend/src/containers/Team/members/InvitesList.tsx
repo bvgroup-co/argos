@@ -11,11 +11,13 @@ import {
 import { Heading, MenuTrigger, Text } from "react-aria-components";
 import { toast } from "sonner";
 
+import { config } from "@/config";
 import { AccountAvatar } from "@/containers/AccountAvatar";
 import { TeamMemberLabel } from "@/containers/UserList";
 import { graphql, type DocumentType } from "@/gql";
 import { Button } from "@/ui/Button";
 import { Chip } from "@/ui/Chip";
+import { CopyButton } from "@/ui/CopyButton";
 import { DialogTrigger } from "@/ui/Dialog";
 import { IconButton } from "@/ui/IconButton";
 import { EmptyState, EmptyStateActions } from "@/ui/Layout";
@@ -54,6 +56,7 @@ const TeamInvitesQuery = graphql(`
     id
     email
     userLevel
+    inviteLink
     expired
     avatar {
       ...AccountAvatarFragment
@@ -205,40 +208,55 @@ export function TeamInvitesList(props: TeamInvitesListProps) {
                           </MenuItemIcon>
                           Cancel Invitation
                         </MenuItem>
-                        <MenuItem
-                          onAction={() => {
-                            toast.promise(
-                              resendInvite({
-                                variables: {
-                                  input: {
-                                    teamAccountId: props.team.id,
-                                    members: [
-                                      {
-                                        email: invite.email,
-                                        level: invite.userLevel,
-                                      },
-                                    ],
+                        {config.email.enabled && (
+                          <MenuItem
+                            onAction={() => {
+                              toast.promise(
+                                resendInvite({
+                                  variables: {
+                                    input: {
+                                      teamAccountId: props.team.id,
+                                      members: [
+                                        {
+                                          email: invite.email,
+                                          level: invite.userLevel,
+                                        },
+                                      ],
+                                    },
                                   },
+                                }),
+                                {
+                                  loading: "Resending invitation…",
+                                  success: "Invitation resent",
+                                  error: "Failed to resend invitation",
                                 },
-                              }),
-                              {
-                                loading: "Resending invitation…",
-                                success: "Invitation resent",
-                                error: "Failed to resend invitation",
-                              },
-                            );
-                          }}
-                        >
-                          <MenuItemIcon>
-                            <MailIcon />
-                          </MenuItemIcon>
-                          Resend Invitation
-                        </MenuItem>
+                              );
+                            }}
+                          >
+                            <MenuItemIcon>
+                              <MailIcon />
+                            </MenuItemIcon>
+                            Resend Invitation
+                          </MenuItem>
+                        )}
+                        {!config.email.enabled && (
+                          <MenuItem
+                            onAction={() => {
+                              navigator.clipboard.writeText(invite.inviteLink);
+                              toast.success("Invite link copied");
+                            }}
+                          >
+                            <MenuItemIcon>
+                              <MailIcon />
+                            </MenuItemIcon>
+                            Copy Invite Link
+                          </MenuItem>
+                        )}
                       </Menu>
                     </Popover>
                   </MenuTrigger>
                 ) : (
-                  <div className="w-4" />
+                  <CopyButton text={invite.inviteLink} />
                 )}
               </ListRow>
             );

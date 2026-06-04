@@ -31,6 +31,7 @@ export * from "./IgnoredChange";
 export * from "./NotificationMessage";
 export * from "./NotificationWorkflow";
 export * from "./NotificationWorkflowRecipient";
+export * from "./OidcIdentity";
 export * from "./Plan";
 export * from "./Project";
 export * from "./ProjectDomain";

@@ -224,6 +224,7 @@ export const typeDefs = gql`
     team: Team!
     invitedBy: User!
     userLevel: TeamUserLevel!
+    inviteLink: String!
     avatar: AccountAvatar!
     expired: Boolean!
   }
@@ -743,6 +744,10 @@ export const resolvers: IResolvers = {
   },
   TeamInvite: {
     id: (teamInvite) => TeamInvite.formatId(teamInvite),
+    inviteLink: (teamInvite) => {
+      return new URL(`/invites/${teamInvite.secret}`, config.get("server.url"))
+        .href;
+    },
     team: async (teamInvite, _args, ctx) => {
       const teamAccount = await ctx.loaders.AccountFromRelation.load({
         teamId: teamInvite.teamId,
@@ -1566,6 +1571,9 @@ export const resolvers: IResolvers = {
 
       await Promise.all(
         invites.map(async (invite) => {
+          if (!config.get("resend.enabled")) {
+            return;
+          }
           const user = userEmails.find((ue) => ue.email === invite.email)?.user;
 
           const [teamAvatar, avatar] = await Promise.all([

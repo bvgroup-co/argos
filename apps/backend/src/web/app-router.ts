@@ -8,6 +8,13 @@ import { z } from "zod";
 import config from "@/config";
 import { getGoogleAuthUrl } from "@/google";
 import { apolloServer, createApolloMiddleware } from "@/graphql";
+import {
+  createOidcCodeVerifier,
+  createOidcNonce,
+  discoverOidcProvider,
+  getOidcAuthUrl,
+  hashOidcCookieValue,
+} from "@/oidc";
 import { getSlackMiddleware } from "@/slack";
 import { boom } from "@/util/error";
 import { createRedisStore } from "@/util/rate-limit";
@@ -16,7 +23,7 @@ import { getEmailPreviewMiddleware } from "../email/express";
 import { getNotificationPreviewMiddleware } from "../notification/express";
 import samlAuthRouter from "./auth-saml";
 import deploymentAccessRouter from "./deployment-access";
-import { subdomain } from "./util";
+import { asyncHandler, subdomain } from "./util";
 
 export const installAppRouter = async (app: express.Application) => {
   const router = Router();
@@ -39,6 +46,15 @@ export const installAppRouter = async (app: express.Application) => {
     },
     session: {
       domain: config.get("session.domain"),
+    },
+    email: {
+      enabled: config.get("resend.enabled"),
+    },
+    auth: {
+      loginMode: config.get("auth.loginMode") as "default" | "oidc",
+    },
+    oidc: {
+      enabled: config.get("oidc.enabled"),
     },
     releaseVersion: config.get("releaseVersion"),
     contactEmail: config.get("contactEmail"),
@@ -171,6 +187,56 @@ export const installAppRouter = async (app: express.Application) => {
       }),
     );
   });
+
+  router.get(
+    "/auth/oidc/login",
+    asyncHandler(async (req, res) => {
+      if (!config.get("oidc.enabled")) {
+        res.redirect("/");
+        return;
+      }
+      const parsed = OAuthQueryParamsSchema.safeParse(req.query);
+      if (!parsed.success) {
+        res.redirect("/");
+        return;
+      }
+      const { state, redirect_uri: redirectUri } = parsed.data;
+      const codeVerifier = createOidcCodeVerifier();
+      const nonce = createOidcNonce();
+      res.cookie("oidc_state", hashOidcCookieValue(state), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: config.get("server.secure"),
+        maxAge: 10 * 60 * 1000,
+      });
+      res.cookie("oidc_nonce", nonce, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: config.get("server.secure"),
+        maxAge: 10 * 60 * 1000,
+      });
+      res.cookie("oidc_code_verifier", codeVerifier, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: config.get("server.secure"),
+        maxAge: 10 * 60 * 1000,
+      });
+      const discovery = await discoverOidcProvider(
+        config.get("oidc.issuerUrl"),
+      );
+      res.redirect(
+        getOidcAuthUrl({
+          discovery,
+          clientId: config.get("oidc.clientId"),
+          redirectUri,
+          scopes: config.get("oidc.scopes"),
+          state,
+          nonce,
+          codeVerifier,
+        }),
+      );
+    }),
+  );
 
   router.use(samlAuthRouter);
 
