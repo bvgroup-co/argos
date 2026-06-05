@@ -1,19 +1,20 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { S3Client } from "@aws-sdk/client-s3";
-import { beforeEach, describe, expect, it } from "vitest";
+import type { S3Client } from "@aws-sdk/client-s3";
+import { beforeEach, expect, it } from "vitest";
 
 import config from "@/config";
 
+import { createS3TestClient, describeWithAwsCredentials } from "./testing";
 import { uploadFromFilePath } from "./upload";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
-describe("#uploadFromFilePath", () => {
+describeWithAwsCredentials("#uploadFromFilePath", () => {
   let s3: S3Client;
 
   beforeEach(() => {
-    s3 = new S3Client({ region: "eu-west-1" });
+    s3 = createS3TestClient("eu-west-1");
   });
 
   it("should upload a file to S3", async () => {

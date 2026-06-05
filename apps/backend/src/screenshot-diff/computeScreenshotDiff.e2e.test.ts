@@ -25,6 +25,7 @@ import { factory, setupDatabase } from "@/database/testing";
 import { quitAmqp } from "@/job-core";
 import { getS3Client, uploadFromFilePath } from "@/storage";
 import type { S3Client } from "@/storage";
+import { describeWithAwsCredentials } from "@/storage/testing";
 
 import { computeScreenshotDiff } from "./computeScreenshotDiff";
 
@@ -86,7 +87,7 @@ const test = base.extend<Fixtures>({
   },
 });
 
-describe("#computeScreenshotDiff", () => {
+describeWithAwsCredentials("#computeScreenshotDiff", () => {
   let s3: S3Client;
   let screenshotDiff: ScreenshotDiff;
 

@@ -1,10 +1,11 @@
 import request from "supertest";
-import { test as base, beforeAll, describe, expect } from "vitest";
+import { test as base, beforeAll, expect } from "vitest";
 import z from "zod";
 
 import { DeploymentAlias, ProjectDomain } from "@/database/models";
 import type { Deployment, Project } from "@/database/models";
 import { factory, setupDatabase } from "@/database/testing";
+import { describeWithAwsCredentials } from "@/storage/testing";
 
 import { createTestHandlerApp } from "../test-util";
 import { finalizeDeployment } from "./finalizeDeployment";
@@ -39,7 +40,7 @@ const test = base.extend<{
   },
 });
 
-describe("finalizeDeployment", () => {
+describeWithAwsCredentials("finalizeDeployment", () => {
   beforeAll(() => {
     z.globalRegistry.clear();
   });
