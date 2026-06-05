@@ -5,7 +5,7 @@ import { rateLimit } from "express-rate-limit";
 import helmet from "helmet";
 import { z } from "zod";
 
-import config from "@/config";
+import config, { type Config } from "@/config";
 import { getGoogleAuthUrl } from "@/google";
 import { apolloServer, createApolloMiddleware } from "@/graphql";
 import {
@@ -26,6 +26,59 @@ import samlAuthRouter from "./auth-saml";
 import deploymentAccessRouter from "./deployment-access";
 import { asyncHandler, subdomain } from "./util";
 
+export function createClientConfig(appConfig: Config): ClientConfig {
+  return {
+    samlTeamSlug: appConfig.get("samlTeamSlug"),
+    sentry: {
+      environment: appConfig.get("sentry.environment"),
+      clientDsn: appConfig.get("sentry.clientDsn"),
+    },
+    session: {
+      domain: appConfig.get("session.domain"),
+    },
+    email: {
+      enabled: appConfig.get("resend.enabled"),
+    },
+    auth: {
+      loginMode: appConfig.get("auth.loginMode") as "default" | "oidc",
+    },
+    oidc: {
+      enabled: appConfig.get("oidc.enabled"),
+      displayName: appConfig.get("oidc.displayName"),
+    },
+    releaseVersion: appConfig.get("releaseVersion"),
+    contactEmail: appConfig.get("contactEmail"),
+    github: {
+      appUrl: appConfig.get("github.appUrl"),
+      clientId: appConfig.get("github.clientId"),
+      loginUrl: appConfig.get("github.loginUrl"),
+      marketplaceUrl: appConfig.get("github.marketplaceUrl"),
+    },
+    githubLight: {
+      appUrl: appConfig.get("githubLight.appUrl"),
+    },
+    gitlab: {
+      loginUrl: appConfig.get("gitlab.loginUrl"),
+    },
+    stripe: {
+      pricingTableId: appConfig.get("stripe.pricingTableId"),
+      publishableKey: appConfig.get("stripe.publishableKey"),
+    },
+    server: {
+      url: appConfig.get("server.url"),
+    },
+    api: {
+      baseUrl: appConfig.get("api.baseUrl"),
+    },
+    deployments: {
+      baseDomain: appConfig.get("deployments.baseDomain"),
+    },
+    bucket: {
+      publishableKey: appConfig.get("bucket.publishableKey"),
+    },
+  };
+}
+
 export const installAppRouter = async (app: express.Application) => {
   const router = Router();
 
@@ -39,55 +92,7 @@ export const installAppRouter = async (app: express.Application) => {
 
   router.use(limiter);
 
-  const clientConfig: ClientConfig = {
-    samlTeamSlug: config.get("samlTeamSlug"),
-    sentry: {
-      environment: config.get("sentry.environment"),
-      clientDsn: config.get("sentry.clientDsn"),
-    },
-    session: {
-      domain: config.get("session.domain"),
-    },
-    email: {
-      enabled: config.get("resend.enabled"),
-    },
-    auth: {
-      loginMode: config.get("auth.loginMode") as "default" | "oidc",
-    },
-    oidc: {
-      enabled: config.get("oidc.enabled"),
-    },
-    releaseVersion: config.get("releaseVersion"),
-    contactEmail: config.get("contactEmail"),
-    github: {
-      appUrl: config.get("github.appUrl"),
-      clientId: config.get("github.clientId"),
-      loginUrl: config.get("github.loginUrl"),
-      marketplaceUrl: config.get("github.marketplaceUrl"),
-    },
-    githubLight: {
-      appUrl: config.get("githubLight.appUrl"),
-    },
-    gitlab: {
-      loginUrl: config.get("gitlab.loginUrl"),
-    },
-    stripe: {
-      pricingTableId: config.get("stripe.pricingTableId"),
-      publishableKey: config.get("stripe.publishableKey"),
-    },
-    server: {
-      url: config.get("server.url"),
-    },
-    api: {
-      baseUrl: config.get("api.baseUrl"),
-    },
-    deployments: {
-      baseDomain: config.get("deployments.baseDomain"),
-    },
-    bucket: {
-      publishableKey: config.get("bucket.publishableKey"),
-    },
-  };
+  const clientConfig = createClientConfig(config);
 
   router.get("/config.js", (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=0");

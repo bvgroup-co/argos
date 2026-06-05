@@ -17,6 +17,7 @@ export interface ClientConfig {
   };
   oidc: {
     enabled: boolean;
+    displayName: string;
   };
   samlTeamSlug: string;
   releaseVersion: string;

@@ -10,6 +10,11 @@ import { useLocation } from "react-router-dom";
 import z from "zod";
 
 import { config } from "@/config";
+import {
+  getOidcLoginLabel,
+  getSignupProviderOptions,
+  type SignupProviderOption,
+} from "@/containers/auth-provider-options";
 import { GitHubLoginButton } from "@/containers/GitHub";
 import { GitLabLoginButton } from "@/containers/GitLab";
 import { GoogleLoginButton } from "@/containers/Google";
@@ -149,42 +154,33 @@ function ProvidersScreen(props: {
 }) {
   const { redirect, onContinueWithEmail } = props;
   const setLastLoginMethod = useSetAtom(lastLoginMethodAtom);
+  const providerOptions = getSignupProviderOptions(config);
+
+  if (providerOptions.length === 1 && providerOptions[0] === "oidc") {
+    return (
+      <div className="flex flex-col gap-4">
+        {config.oidc.enabled && (
+          <OidcLoginButton
+            redirect={redirect}
+            size="large"
+            className="w-full justify-center"
+            onPress={() => setLastLoginMethod("oidc")}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <GoogleLoginButton
-        redirect={redirect}
-        size="large"
-        className="w-full justify-center"
-        onPress={() => setLastLoginMethod("google")}
-      >
-        Continue with Google
-      </GoogleLoginButton>
-      <GitHubLoginButton
-        redirect={redirect}
-        size="large"
-        className="w-full justify-center"
-        onPress={() => setLastLoginMethod("github")}
-      >
-        Continue with GitHub
-      </GitHubLoginButton>
-      <GitLabLoginButton
-        redirect={redirect}
-        size="large"
-        className="w-full justify-center"
-        onPress={() => setLastLoginMethod("gitlab")}
-      >
-        Continue with GitLab
-      </GitLabLoginButton>
-      {config.oidc.enabled && (
-        <OidcLoginButton
+      {providerOptions.map((provider) => (
+        <ProviderButton
+          key={provider}
+          provider={provider}
           redirect={redirect}
-          size="large"
-          className="w-full justify-center"
-          onPress={() => setLastLoginMethod("oidc")}
-        >
-          Continue with SSO
-        </OidcLoginButton>
-      )}
+          onPress={() => setLastLoginMethod(provider)}
+        />
+      ))}
       {config.email.enabled && (
         <LinkButton
           className="mt-2 w-full text-center"
@@ -195,4 +191,59 @@ function ProvidersScreen(props: {
       )}
     </div>
   );
+}
+
+function ProviderButton(props: {
+  provider: SignupProviderOption;
+  redirect?: string | null;
+  onPress: () => void;
+}) {
+  switch (props.provider) {
+    case "google":
+      return (
+        <GoogleLoginButton
+          redirect={props.redirect}
+          size="large"
+          className="w-full justify-center"
+          onPress={props.onPress}
+        >
+          Continue with Google
+        </GoogleLoginButton>
+      );
+    case "oidc":
+      return (
+        <OidcLoginButton
+          redirect={props.redirect}
+          size="large"
+          className="w-full justify-center"
+          onPress={props.onPress}
+        >
+          {getOidcLoginLabel(config)}
+        </OidcLoginButton>
+      );
+    case "github":
+      return (
+        <GitHubLoginButton
+          redirect={props.redirect}
+          size="large"
+          className="w-full justify-center"
+          onPress={props.onPress}
+        >
+          Continue with GitHub
+        </GitHubLoginButton>
+      );
+    case "gitlab":
+      return (
+        <GitLabLoginButton
+          redirect={props.redirect}
+          size="large"
+          className="w-full justify-center"
+          onPress={props.onPress}
+        >
+          Continue with GitLab
+        </GitLabLoginButton>
+      );
+    default:
+      assertNever(props.provider);
+  }
 }
