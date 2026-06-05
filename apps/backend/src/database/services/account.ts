@@ -393,14 +393,18 @@ export async function syncOidcTeamMemberships(input: {
         userId: input.userId,
       });
       if (existing) {
+        if (
+          existing.lastAuthMethod !== "oidc" ||
+          existing.ssoSubject !== input.subject
+        ) {
+          return;
+        }
         const shouldPromote =
           TEAM_USER_LEVEL_RANK[mapping.role] >
           TEAM_USER_LEVEL_RANK[existing.userLevel];
         await existing.$query().patch({
           ...(shouldPromote ? { userLevel: mapping.role } : {}),
-          ssoSubject: input.subject,
           ssoVerifiedAt: now,
-          lastAuthMethod: "oidc",
         });
         return;
       }

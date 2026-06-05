@@ -53,7 +53,8 @@ function AuthCallback(props: { provider: AuthProvider }) {
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const errorParam = searchParams.get("error");
-  const redirectUri = state ? getRedirectFromState({ state, provider }) : null;
+  const redirectUri =
+    !errorParam && state ? getRedirectFromState({ state, provider }) : null;
   const { setToken, token } = useAuth();
   const [initialToken] = useState(token);
   const [authError, setAuthError] = useState<Error | null>(null);
@@ -90,13 +91,18 @@ function AuthCallback(props: { provider: AuthProvider }) {
     throw authError;
   }
 
-  if (!code || !redirectUri) {
-    throw <UniversalNavigate to={redirectUri ?? "/login"} replace />;
-  }
-
   // If there is an error param, redirect to the login page.
   if (errorParam) {
-    return <UniversalNavigate to="/login" replace />;
+    return (
+      <UniversalNavigate
+        to={`/login?error=${encodeURIComponent(errorParam)}`}
+        replace
+      />
+    );
+  }
+
+  if (!code || !redirectUri) {
+    throw <UniversalNavigate to={redirectUri ?? "/login"} replace />;
   }
 
   // If the token changes, redirect to the original page.

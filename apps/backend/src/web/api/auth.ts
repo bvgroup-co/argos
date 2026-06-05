@@ -36,6 +36,7 @@ import { getGoogleAuthenticatedClient, getGoogleUserProfile } from "@/google";
 import {
   discoverOidcProvider,
   exchangeOidcCode,
+  getOidcClearCookieOptions,
   getOidcUserProfile,
   hashOidcCookieValue,
   parseOidcGroupTeamMappings,
@@ -254,9 +255,10 @@ router.use(
     if (stateHash !== hashOidcCookieValue(state)) {
       throw boom(401, "Invalid OIDC state");
     }
-    res.clearCookie("oidc_state");
-    res.clearCookie("oidc_nonce");
-    res.clearCookie("oidc_code_verifier");
+    const cookieOptions = getOidcClearCookieOptions();
+    res.clearCookie("oidc_state", cookieOptions);
+    res.clearCookie("oidc_nonce", cookieOptions);
+    res.clearCookie("oidc_code_verifier", cookieOptions);
     const discovery = await discoverOidcProvider(config.get("oidc.issuerUrl"));
     const tokenResponse = await exchangeOidcCode({
       discovery,

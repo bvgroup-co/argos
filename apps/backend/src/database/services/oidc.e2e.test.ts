@@ -63,14 +63,6 @@ describe("OIDC account provisioning", () => {
     await factory.TeamAccount.create({
       slug: "owner-team",
     });
-    const existingTeamAccount = await factory.TeamAccount.create({
-      slug: "existing-team",
-    });
-    await factory.TeamUser.create({
-      userId: user.id,
-      teamId: existingTeamAccount.teamId,
-      userLevel: "member",
-    });
 
     await syncOidcTeamMemberships({
       userId: user.id,
@@ -101,6 +93,55 @@ describe("OIDC account provisioning", () => {
 
     expect(levelBySlug.get("member-team")).toBe("member");
     expect(levelBySlug.get("owner-team")).toBe("owner");
-    expect(levelBySlug.get("existing-team")).toBe("member");
+  });
+
+  it("does not overwrite existing non-OIDC team memberships", async () => {
+    const user = await factory.User.create();
+    const manualTeamAccount = await factory.TeamAccount.create({
+      slug: "manual-team",
+    });
+    const oidcTeamAccount = await factory.TeamAccount.create({
+      slug: "oidc-team",
+    });
+    await factory.TeamUser.create({
+      userId: user.id,
+      teamId: manualTeamAccount.teamId,
+      userLevel: "member",
+      lastAuthMethod: null,
+      ssoSubject: null,
+      ssoVerifiedAt: null,
+    });
+    await factory.TeamUser.create({
+      userId: user.id,
+      teamId: oidcTeamAccount.teamId,
+      userLevel: "member",
+      lastAuthMethod: "oidc",
+      ssoSubject: "user-1",
+      ssoVerifiedAt: new Date(0).toISOString(),
+    });
+
+    await syncOidcTeamMemberships({
+      userId: user.id,
+      subject: "user-1",
+      groups: ["argos-admins"],
+      mappings: [
+        { group: "argos-admins", teamSlug: "manual-team", role: "owner" },
+        { group: "argos-admins", teamSlug: "oidc-team", role: "owner" },
+      ],
+    });
+
+    const manualMembership = await TeamUser.query()
+      .findOne({ userId: user.id, teamId: manualTeamAccount.teamId })
+      .throwIfNotFound();
+    const oidcMembership = await TeamUser.query()
+      .findOne({ userId: user.id, teamId: oidcTeamAccount.teamId })
+      .throwIfNotFound();
+
+    expect(manualMembership.userLevel).toBe("member");
+    expect(manualMembership.lastAuthMethod).toBeNull();
+    expect(manualMembership.ssoSubject).toBeNull();
+    expect(oidcMembership.userLevel).toBe("owner");
+    expect(oidcMembership.lastAuthMethod).toBe("oidc");
+    expect(oidcMembership.ssoSubject).toBe("user-1");
   });
 });

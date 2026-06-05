@@ -13,6 +13,7 @@ import {
   createOidcNonce,
   discoverOidcProvider,
   getOidcAuthUrl,
+  getOidcCookieOptions,
   hashOidcCookieValue,
 } from "@/oidc";
 import { getSlackMiddleware } from "@/slack";
@@ -203,24 +204,10 @@ export const installAppRouter = async (app: express.Application) => {
       const { state, redirect_uri: redirectUri } = parsed.data;
       const codeVerifier = createOidcCodeVerifier();
       const nonce = createOidcNonce();
-      res.cookie("oidc_state", hashOidcCookieValue(state), {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: config.get("server.secure"),
-        maxAge: 10 * 60 * 1000,
-      });
-      res.cookie("oidc_nonce", nonce, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: config.get("server.secure"),
-        maxAge: 10 * 60 * 1000,
-      });
-      res.cookie("oidc_code_verifier", codeVerifier, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: config.get("server.secure"),
-        maxAge: 10 * 60 * 1000,
-      });
+      const cookieOptions = getOidcCookieOptions();
+      res.cookie("oidc_state", hashOidcCookieValue(state), cookieOptions);
+      res.cookie("oidc_nonce", nonce, cookieOptions);
+      res.cookie("oidc_code_verifier", codeVerifier, cookieOptions);
       const discovery = await discoverOidcProvider(
         config.get("oidc.issuerUrl"),
       );
