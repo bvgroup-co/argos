@@ -295,12 +295,6 @@ router.use(
         config.get("oidc.groupTeamMappings"),
       ),
     });
-    if (!auth) {
-      await markUserLastAuthMethod({
-        userId: account.userId,
-        method: "oidc",
-      });
-    }
     return { account, creation };
   }),
 );
