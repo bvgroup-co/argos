@@ -1,13 +1,21 @@
 import { expect } from "@playwright/test";
 
 import { loggedTest } from "./logged-test";
-import { ensureTeamOwner, screenshot } from "./util";
+import {
+  ensureTeamOwner,
+  hasExternalVisualDependencies,
+  screenshot,
+} from "./util";
 
 loggedTest.beforeEach(async ({ auth, team }) => {
   await ensureTeamOwner({ team: team.team, user: auth.user });
 });
 
-loggedTest("tests", async ({ page, team, project, builds }) => {
+const visualTest = hasExternalVisualDependencies()
+  ? loggedTest
+  : loggedTest.skip;
+
+visualTest("tests", async ({ page, team, project, builds }) => {
   void builds;
   await page.goto(`/${team.account.slug}/${project.name}/tests`);
   await expect(page.getByRole("heading", { name: "Tests" })).toBeVisible();
@@ -17,7 +25,7 @@ loggedTest("tests", async ({ page, team, project, builds }) => {
   await screenshot(page, "project-tests");
 });
 
-loggedTest("test detail", async ({ page, team, project, builds }) => {
+visualTest("test detail", async ({ page, team, project, builds }) => {
   void builds;
   await page.goto(`/${team.account.slug}/${project.name}/tests`);
   await page.getByRole("link", { name: /penelope-argos\.jpg/ }).click();
