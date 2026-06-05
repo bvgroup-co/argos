@@ -8,8 +8,6 @@ const OidcGroupTeamMappingSchema = z.object({
   role: OidcTeamUserLevelSchema,
 });
 
-export type OidcGroupTeamMapping = z.infer<typeof OidcGroupTeamMappingSchema>;
-
 export function parseOidcGroupTeamMappings(value: unknown) {
   return z.array(OidcGroupTeamMappingSchema).parse(value);
 }

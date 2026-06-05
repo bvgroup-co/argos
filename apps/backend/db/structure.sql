@@ -1459,6 +1459,48 @@ ALTER SEQUENCE public.notification_workflows_id_seq OWNED BY public.notification
 
 
 --
+-- Name: oidc_identities; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.oidc_identities (
+    id bigint NOT NULL,
+    "createdAt" timestamp with time zone NOT NULL,
+    "updatedAt" timestamp with time zone NOT NULL,
+    issuer character varying(255) NOT NULL,
+    subject character varying(255) NOT NULL,
+    email character varying(255),
+    "emailVerified" boolean DEFAULT false NOT NULL,
+    name character varying(255),
+    "preferredUsername" character varying(255),
+    groups jsonb,
+    "lastLoggedAt" timestamp with time zone
+);
+
+
+ALTER TABLE public.oidc_identities OWNER TO postgres;
+
+--
+-- Name: oidc_identities_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.oidc_identities_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.oidc_identities_id_seq OWNER TO postgres;
+
+--
+-- Name: oidc_identities_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.oidc_identities_id_seq OWNED BY public.oidc_identities.id;
+
+
+--
 -- Name: plans; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -2045,7 +2087,7 @@ CREATE TABLE public.team_users (
     "ssoSubject" character varying(255),
     "ssoVerifiedAt" timestamp with time zone,
     "lastAuthMethod" text,
-    CONSTRAINT "team_users_lastAuthMethod_check" CHECK (("lastAuthMethod" = ANY (ARRAY['email'::text, 'google'::text, 'github'::text, 'gitlab'::text, 'saml'::text]))),
+    CONSTRAINT "team_users_lastAuthMethod_check" CHECK (("lastAuthMethod" = ANY (ARRAY['email'::text, 'google'::text, 'github'::text, 'gitlab'::text, 'saml'::text, 'oidc'::text]))),
     CONSTRAINT "team_users_userLevel_check" CHECK (("userLevel" = ANY (ARRAY['owner'::text, 'member'::text, 'contributor'::text])))
 );
 
@@ -2317,6 +2359,7 @@ CREATE TABLE public.users (
     "googleUserId" bigint,
     "deletedAt" timestamp with time zone,
     type text DEFAULT 'user'::text NOT NULL,
+    "oidcIdentityId" bigint,
     CONSTRAINT users_type_check CHECK ((type = ANY (ARRAY['user'::text, 'bot'::text])))
 );
 
@@ -2559,6 +2602,13 @@ ALTER TABLE ONLY public.notification_workflow_recipients ALTER COLUMN id SET DEF
 --
 
 ALTER TABLE ONLY public.notification_workflows ALTER COLUMN id SET DEFAULT nextval('public.notification_workflows_id_seq'::regclass);
+
+
+--
+-- Name: oidc_identities id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.oidc_identities ALTER COLUMN id SET DEFAULT nextval('public.oidc_identities_id_seq'::regclass);
 
 
 --
@@ -3116,6 +3166,22 @@ ALTER TABLE ONLY public.notification_workflow_recipients
 
 ALTER TABLE ONLY public.notification_workflows
     ADD CONSTRAINT notification_workflows_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oidc_identities oidc_identities_issuer_subject_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.oidc_identities
+    ADD CONSTRAINT oidc_identities_issuer_subject_unique UNIQUE (issuer, subject);
+
+
+--
+-- Name: oidc_identities oidc_identities_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.oidc_identities
+    ADD CONSTRAINT oidc_identities_pkey PRIMARY KEY (id);
 
 
 --
@@ -4023,6 +4089,13 @@ CREATE INDEX users_googleuserid_fk_index ON public.users USING btree ("googleUse
 
 
 --
+-- Name: users_oidcidentityid_index; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX users_oidcidentityid_index ON public.users USING btree ("oidcIdentityId");
+
+
+--
 -- Name: accounts accounts_forcedplanid_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -4807,6 +4880,14 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: users users_oidcidentityid_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_oidcidentityid_foreign FOREIGN KEY ("oidcIdentityId") REFERENCES public.oidc_identities(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
@@ -5019,3 +5100,4 @@ INSERT INTO public.knex_migrations(name, batch, migration_time) VALUES ('2026053
 INSERT INTO public.knex_migrations(name, batch, migration_time) VALUES ('20260530130000_comment-deleted-at.js', 1, NOW());
 INSERT INTO public.knex_migrations(name, batch, migration_time) VALUES ('20260531120000_comment-notifications-subscriptions.js', 1, NOW());
 INSERT INTO public.knex_migrations(name, batch, migration_time) VALUES ('20260531130000_comment-mentions.js', 1, NOW());
+INSERT INTO public.knex_migrations(name, batch, migration_time) VALUES ('20260604230000_oidc-auth.js', 1, NOW());
