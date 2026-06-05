@@ -38,7 +38,7 @@ const config = defineConfig({
     [
       "@argos-ci/playwright/reporter",
       createArgosReporterOptions({
-        uploadToArgos: !!process.env.CI,
+        uploadToArgos: Boolean(process.env.CI && process.env.ARGOS_TOKEN),
       }),
     ],
   ],
