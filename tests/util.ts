@@ -11,6 +11,14 @@ import {
   type User,
 } from "../apps/backend/src/database/models";
 
+export function hasExternalVisualDependencies() {
+  return Boolean(
+    process.env["AWS_ACCESS_KEY_ID"] &&
+    process.env["AWS_SECRET_ACCESS_KEY"] &&
+    process.env["ARGOS_TOKEN"],
+  );
+}
+
 export async function ensureTeamOwner({
   team,
   user,

@@ -315,20 +315,31 @@ export async function createBuildScenario(input: {
     emptyBuild,
     removedBuild,
   ] = await Build.query().insertAndFetch([
-    { ...buildBase, number: 1, type: "orphan", baseScreenshotBucketId: null },
-    { ...buildBase, number: 2, type: "reference" },
+    {
+      ...buildBase,
+      number: 1,
+      type: "orphan",
+      baseScreenshotBucketId: null,
+      conclusion: "changes-detected",
+    },
+    {
+      ...buildBase,
+      number: 2,
+      type: "reference",
+      conclusion: "changes-detected",
+    },
     { ...buildBase, number: 3, jobStatus: "progress" }, // Expired
     { ...buildBase, number: 4, jobStatus: "aborted" },
     { ...buildBase, number: 5, jobStatus: "error" },
-    { ...buildBase, number: 6 }, // Diff detected
-    { ...buildBase, number: 7 }, // Accepted
-    { ...buildBase, number: 8 }, // Rejected
+    { ...buildBase, number: 6, conclusion: "changes-detected" },
+    { ...buildBase, number: 7, conclusion: "changes-detected" },
+    { ...buildBase, number: 8, conclusion: "changes-detected" },
     { ...buildBase, number: 9, jobStatus: "pending" }, // Pending/Scheduled
     { ...buildBase, number: 10 }, // In progress (diffs pending)
-    { ...buildBase, number: 11 }, // Fail
-    { ...buildBase, number: 12 }, // Stable
+    { ...buildBase, number: 11, conclusion: "changes-detected" },
+    { ...buildBase, number: 12, conclusion: "no-changes" },
     { ...buildBase, number: 13 }, // Empty
-    { ...buildBase, number: 14 }, // Removed
+    { ...buildBase, number: 14, conclusion: "changes-detected" },
   ]);
 
   const defaultScreenshotDiff = {

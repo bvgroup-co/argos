@@ -8,9 +8,11 @@ import { useForm } from "react-hook-form";
 import { useLocation } from "react-router-dom";
 import { z } from "zod";
 
+import { config } from "@/config";
 import { GitHubLoginButton } from "@/containers/GitHub";
 import { GitLabLoginButton } from "@/containers/GitLab";
 import { GoogleLoginButton } from "@/containers/Google";
+import { OidcLoginButton } from "@/containers/Oidc";
 import { graphql } from "@/gql";
 import { Button, ButtonIcon } from "@/ui/Button";
 import { Form } from "@/ui/Form";
@@ -44,6 +46,7 @@ export function LoginOptions(props: {
           <EmailForm
             isLastUsed={lastLoginMethod === "email"}
             defaultEmail={email}
+            isHidden={!config.email.enabled}
             onContinue={({ email }) => {
               onEmailChange(email);
               setScreen("verifyEmail");
@@ -62,6 +65,19 @@ export function LoginOptions(props: {
                 Continue with Google
               </GoogleLoginButton>
             </LastUsedIndicator>
+            {config.oidc.enabled && (
+              <LastUsedIndicator isEnabled={lastLoginMethod === "oidc"}>
+                <OidcLoginButton
+                  redirect={redirect}
+                  size="large"
+                  className="w-full justify-center"
+                  isDisabled={props.isDisabled}
+                  onPress={() => setLastLoginMethod("oidc")}
+                >
+                  Continue with SSO
+                </OidcLoginButton>
+              </LastUsedIndicator>
+            )}
             <LastUsedIndicator isEnabled={lastLoginMethod === "github"}>
               <GitHubLoginButton
                 redirect={redirect}
@@ -200,6 +216,7 @@ const EmailFormValuesSchema = z.object({
 function EmailForm(props: {
   defaultEmail: string;
   isLastUsed: boolean;
+  isHidden: boolean;
   onContinue: (data: { email: string }) => void;
 }) {
   const { onContinue, isLastUsed, defaultEmail } = props;
@@ -208,7 +225,7 @@ function EmailForm(props: {
     defaultValues: { email: defaultEmail },
     resolver: zodResolver(EmailFormValuesSchema),
   });
-  return (
+  return props.isHidden ? null : (
     <Form
       noValidate
       form={form}

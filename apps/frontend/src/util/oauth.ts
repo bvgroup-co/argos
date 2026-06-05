@@ -11,12 +11,13 @@ type OAuthState = {
 
 type RawState = string;
 
-export type AuthProvider = "github" | "gitlab" | "google" | "saml";
+export type AuthProvider = "github" | "gitlab" | "google" | "saml" | "oidc";
 const AUTH_PROVIDERS = [
   "github",
   "gitlab",
   "google",
   "saml",
+  "oidc",
 ] satisfies AuthProvider[];
 
 export function checkIsAuthProvider(
@@ -74,6 +75,8 @@ function getLoginUrl(provider: AuthProvider): string {
       return config.gitlab.loginUrl;
     case "google":
       return new URL("/auth/google/login", window.location.origin).toString();
+    case "oidc":
+      return new URL("/auth/oidc/login", window.location.origin).toString();
     case "saml":
       throw new Error(`Not applicable to SAML`);
     default:

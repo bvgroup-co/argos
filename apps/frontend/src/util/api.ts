@@ -60,6 +60,7 @@ export async function fetchApi<TData, TErrorData = unknown>(
   const result = await fetch(url.toString(), {
     method: "POST",
     headers,
+    credentials: "include",
     body: JSON.stringify(options.data),
   });
   const json = await result.json();

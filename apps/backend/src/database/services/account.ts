@@ -6,6 +6,7 @@ import type { PartialModelObject, TransactionOrKnex } from "objection";
 
 import { generateAuthEmailCode, verifyAuthEmailCode } from "@/auth/email";
 import { createJWT, JWT_VERSION } from "@/auth/jwt";
+import config from "@/config";
 import { sendEmailTemplate } from "@/email/send-email-template";
 import { sendNotification } from "@/notification";
 import { getSlugFromEmail, sanitizeEmail } from "@/util/email";
@@ -16,6 +17,7 @@ import { Account } from "../models/Account";
 import { GithubAccount } from "../models/GithubAccount";
 import type { GitlabUser } from "../models/GitlabUser";
 import { GoogleUser } from "../models/GoogleUser";
+import { OidcIdentity } from "../models/OidcIdentity";
 import { Team } from "../models/Team";
 import { TeamInvite } from "../models/TeamInvite";
 import { TeamUser } from "../models/TeamUser";
@@ -37,6 +39,12 @@ const RESERVED_SLUGS = [
   "invites",
   "account",
 ];
+
+const TEAM_USER_LEVEL_RANK = {
+  contributor: 0,
+  member: 1,
+  owner: 2,
+} as const;
 
 type TeamUserAuthMethod = (typeof TeamUser.authMethods)[number];
 type AccountAuthResult = {
@@ -306,6 +314,112 @@ export async function getOrCreateUserAccountFromGoogleUser(input: {
   });
 }
 
+export async function getOrCreateUserAccountFromOidcIdentity(input: {
+  oidcIdentity: OidcIdentity;
+  attachToAccount: Account | null;
+}): Promise<AccountAuthResult> {
+  const { oidcIdentity, attachToAccount } = input;
+  return getOrCreateUserAccountFromThirdParty({
+    provider: "OIDC",
+    model: oidcIdentity,
+    attachToAccount,
+    getEmail: (model) => model.email,
+    getSlug: (model) => {
+      if (model.preferredUsername) {
+        return model.preferredUsername;
+      }
+      invariant(model.email, "Expected email to be defined");
+      const emailIdentifier = model.email.toLocaleLowerCase().split("@")[0];
+      invariant(emailIdentifier, `Invalid email identifier: ${model.email}`);
+      return emailIdentifier;
+    },
+    getName: (model) => model.name ?? model.preferredUsername,
+    getPotentialEmails: (model) => (model.email ? [model.email] : []),
+    thirdPartyKey: { user: "oidcIdentityId" },
+    errorCodes: {
+      alreadyAttachedToArgosAccount: "OIDC_ACCOUNT_ALREADY_ATTACHED",
+      alreadyAttachedToThirdPartyAccount:
+        "ARGOS_ACCOUNT_ALREADY_ATTACHED_TO_OIDC",
+      noVerifiedEmail: "OIDC_NO_VERIFIED_EMAIL",
+    },
+  });
+}
+
+type OidcGroupTeamMapping = {
+  group: string;
+  teamSlug: string;
+  role: TeamUser["userLevel"];
+};
+
+export async function syncOidcTeamMemberships(input: {
+  userId: string;
+  subject: string;
+  groups: string[];
+  mappings: OidcGroupTeamMapping[];
+}) {
+  const mappingsByTeamSlug = input.mappings.reduce<
+    Map<string, OidcGroupTeamMapping>
+  >((acc, mapping) => {
+    if (!input.groups.includes(mapping.group)) {
+      return acc;
+    }
+    const existing = acc.get(mapping.teamSlug);
+    if (
+      !existing ||
+      TEAM_USER_LEVEL_RANK[mapping.role] > TEAM_USER_LEVEL_RANK[existing.role]
+    ) {
+      acc.set(mapping.teamSlug, mapping);
+    }
+    return acc;
+  }, new Map());
+
+  if (mappingsByTeamSlug.size === 0) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const teamAccounts = await Account.query()
+    .select("accounts.teamId", "accounts.slug")
+    .whereIn("slug", Array.from(mappingsByTeamSlug.keys()))
+    .whereNotNull("teamId");
+
+  await Promise.all(
+    teamAccounts.map(async (account) => {
+      invariant(account.teamId, "Account teamId is undefined");
+      const mapping = mappingsByTeamSlug.get(account.slug);
+      invariant(mapping, `OIDC mapping not found for ${account.slug}`);
+      const existing = await TeamUser.query().findOne({
+        teamId: account.teamId,
+        userId: input.userId,
+      });
+      if (existing) {
+        if (
+          existing.lastAuthMethod !== "oidc" ||
+          existing.ssoSubject !== input.subject
+        ) {
+          return;
+        }
+        const shouldPromote =
+          TEAM_USER_LEVEL_RANK[mapping.role] >
+          TEAM_USER_LEVEL_RANK[existing.userLevel];
+        await existing.$query().patch({
+          ...(shouldPromote ? { userLevel: mapping.role } : {}),
+          ssoVerifiedAt: now,
+        });
+        return;
+      }
+      await TeamUser.query().insert({
+        teamId: account.teamId,
+        userId: input.userId,
+        userLevel: mapping.role,
+        ssoSubject: input.subject,
+        ssoVerifiedAt: now,
+        lastAuthMethod: "oidc",
+      });
+    }),
+  );
+}
+
 async function getOrCreateUserAccountFromThirdParty<
   TModel extends Model,
 >(input: {
@@ -317,7 +431,7 @@ async function getOrCreateUserAccountFromThirdParty<
   getName: (model: TModel) => string | null;
   getPotentialEmails: (model: TModel) => string[];
   thirdPartyKey:
-    | { user: "gitlabUserId" | "googleUserId" }
+    | { user: "gitlabUserId" | "googleUserId" | "oidcIdentityId" }
     | { account: "githubAccountId" };
   errorCodes: {
     alreadyAttachedToArgosAccount: ErrorCode;
@@ -625,6 +739,9 @@ export async function requestEmailSignup(args: {
   email: string;
   requestLocation: RequestLocation | null;
 }): Promise<void> {
+  if (!config.get("resend.enabled")) {
+    throw boom(400, "Email authentication is disabled");
+  }
   const { requestLocation } = args;
   const email = sanitizeEmail(args.email);
   const user = await User.query()
@@ -668,6 +785,9 @@ export async function requestEmailSignin(args: {
   email: string;
   requestLocation: RequestLocation | null;
 }): Promise<void> {
+  if (!config.get("resend.enabled")) {
+    throw boom(400, "Email authentication is disabled");
+  }
   const { requestLocation } = args;
   const email = sanitizeEmail(args.email);
   const user = await User.query()
@@ -717,6 +837,9 @@ export async function authenticateWithEmail(args: {
   account: Account;
   creation: boolean;
 }> {
+  if (!config.get("resend.enabled")) {
+    throw boom(400, "Email authentication is disabled");
+  }
   const { code } = args;
   const email = sanitizeEmail(args.email);
 

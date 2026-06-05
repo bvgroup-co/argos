@@ -44,6 +44,24 @@ convict.addFormat({
   coerce: toStringArray,
 });
 
+convict.addFormat({
+  name: "json-array",
+  validate: (value) => {
+    if (!Array.isArray(value)) {
+      throw new Error("must be an array");
+    }
+  },
+  coerce: (value) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value !== "string" || value.trim() === "") {
+      return [];
+    }
+    return JSON.parse(value) as unknown[];
+  },
+});
+
 /**
  * Create the configuration object.
  */
@@ -182,6 +200,12 @@ export function createConfig() {
       },
     },
     resend: {
+      enabled: {
+        doc: "Whether outbound email delivery is enabled.",
+        format: Boolean,
+        default: true,
+        env: "EMAIL_ENABLED",
+      },
       apiKey: {
         doc: "Resend API Key",
         format: String,
@@ -193,6 +217,70 @@ export function createConfig() {
         format: String,
         default: "development",
         env: "RESEND_WEBHOOK_SECRET",
+      },
+    },
+    auth: {
+      loginMode: {
+        doc: "Login mode used by the frontend.",
+        format: ["default", "oidc"],
+        default: "default",
+        env: "AUTH_LOGIN_MODE",
+      },
+    },
+    oidc: {
+      enabled: {
+        doc: "Whether generic OpenID Connect authentication is enabled.",
+        format: Boolean,
+        default: false,
+        env: "OIDC_ENABLED",
+      },
+      issuerUrl: {
+        doc: "OpenID Connect issuer URL.",
+        format: String,
+        default: "",
+        env: "OIDC_ISSUER_URL",
+      },
+      clientId: {
+        doc: "OpenID Connect client ID.",
+        format: String,
+        default: "",
+        env: "OIDC_CLIENT_ID",
+      },
+      clientSecret: {
+        doc: "OpenID Connect client secret.",
+        format: String,
+        default: "",
+        env: "OIDC_CLIENT_SECRET",
+      },
+      scopes: {
+        doc: "OpenID Connect scopes requested during login.",
+        format: String,
+        default: "openid profile email groups",
+        env: "OIDC_SCOPES",
+      },
+      requireVerifiedEmail: {
+        doc: "Whether OIDC email_verified must be true.",
+        format: Boolean,
+        default: true,
+        env: "OIDC_REQUIRE_VERIFIED_EMAIL",
+      },
+      groupsClaim: {
+        doc: "OIDC claim containing group names.",
+        format: String,
+        default: "groups",
+        env: "OIDC_GROUPS_CLAIM",
+      },
+      groupSyncRemoveMissing: {
+        doc: "Whether OIDC group sync removes missing provisioned memberships.",
+        format: Boolean,
+        default: false,
+        env: "OIDC_GROUP_SYNC_REMOVE_MISSING",
+      },
+      groupTeamMappings: {
+        doc: "OIDC group to Argos team mappings.",
+        format: "json-array",
+        default: [],
+        env: "OIDC_GROUP_TEAM_MAPPINGS_JSON",
       },
     },
     s3: {

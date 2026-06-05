@@ -2,7 +2,11 @@ import { expect } from "@playwright/test";
 
 import { BuildScenario } from "../apps/backend/src/database/seeds";
 import { loggedTest } from "./logged-test";
-import { ensureTeamOwner, screenshot } from "./util";
+import {
+  ensureTeamOwner,
+  hasExternalVisualDependencies,
+  screenshot,
+} from "./util";
 
 const buildExamples: {
   name: string;
@@ -47,7 +51,12 @@ const buildExamples: {
 ];
 
 buildExamples.forEach((build) => {
-  loggedTest(build.name, async ({ page, auth, team, project, builds }) => {
+  const test =
+    build.compare === false || hasExternalVisualDependencies()
+      ? loggedTest
+      : loggedTest.skip;
+
+  test(build.name, async ({ page, auth, team, project, builds }) => {
     await ensureTeamOwner({ team: team.team, user: auth.user });
     const number = build.getNumber(builds);
     await page.goto(`/${team.account.slug}/${project.name}/builds/${number}`);

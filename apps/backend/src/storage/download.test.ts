@@ -2,25 +2,27 @@ import { readFile } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { S3Client } from "@aws-sdk/client-s3";
+import type { S3Client } from "@aws-sdk/client-s3";
 import { dirSync } from "tmp";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, expect, it } from "vitest";
 
 import config from "@/config";
 
 import { download } from "./download";
 import { get } from "./get";
+import { createS3TestClient, describeWithAwsCredentials } from "./testing";
 import { uploadFromFilePath } from "./upload";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 const readFileAsync = promisify(readFile);
 
-describe("#download", () => {
-  const s3 = new S3Client({ region: "eu-west-1" });
+describeWithAwsCredentials("#download", () => {
+  let s3: S3Client;
   let tmpDirectory: string;
 
   beforeAll(async () => {
+    s3 = createS3TestClient("eu-west-1");
     await uploadFromFilePath({
       s3,
       Bucket: config.get("s3.screenshotsBucket"),

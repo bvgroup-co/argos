@@ -44,7 +44,7 @@ export default mergeConfig(
               },
             }),
             argosVitestPlugin({
-              uploadToArgos: env.CI === "true",
+              uploadToArgos: env.CI === "true" && Boolean(env.ARGOS_TOKEN),
             }),
           ],
           test: {

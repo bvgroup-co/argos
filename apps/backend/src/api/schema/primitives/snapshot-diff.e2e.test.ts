@@ -1,6 +1,6 @@
 import type { ScreenshotMetadata } from "@argos/schemas/screenshot-metadata";
 import { invariant } from "@argos/util/invariant";
-import { test as base, describe, expect } from "vitest";
+import { test as base, expect } from "vitest";
 
 import type {
   Build,
@@ -9,6 +9,7 @@ import type {
   ScreenshotDiff,
 } from "@/database/models";
 import { factory, setupDatabase } from "@/database/testing";
+import { describeWithAwsCredentials } from "@/storage/testing";
 
 import { serializeSnapshotDiffs } from "./snapshot-diff";
 
@@ -305,7 +306,7 @@ const test = base.extend<{
   },
 });
 
-describe("api/schema/primitives/snapshot-diff", () => {
+describeWithAwsCredentials("api/schema/primitives/snapshot-diff", () => {
   test("serializes a changed diff with nested snapshots and diff URL", async ({
     changedDiff,
   }) => {

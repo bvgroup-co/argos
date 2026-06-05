@@ -8,14 +8,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 import config from "@/config";
 
 import { getSignedObjectUrl } from "./signed-url";
+import { createS3TestClient, describeWithAwsCredentials } from "./testing";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
-describe("#getSignedObjectUrl", () => {
+describeWithAwsCredentials("#getSignedObjectUrl", () => {
   let s3: S3Client;
 
   beforeEach(() => {
-    s3 = new S3Client({ region: "eu-west-1" });
+    s3 = createS3TestClient("eu-west-1");
   });
 
   it("generate a signed URL used to upload", async () => {

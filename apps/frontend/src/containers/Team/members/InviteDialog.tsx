@@ -6,6 +6,7 @@ import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { config } from "@/config";
 import { DocumentType, graphql } from "@/gql";
 import { TeamUserLevel } from "@/gql/graphql";
 import { Button, ButtonIcon } from "@/ui/Button";
@@ -42,6 +43,7 @@ const InviteMembersMutation = graphql(`
   mutation InviteMembers($input: InviteMembersInput!) {
     inviteMembers(input: $input) {
       id
+      inviteLink
       ...InvitesList_TeamInvite
     }
   }
@@ -88,7 +90,7 @@ export function InviteDialog(props: {
             );
             return;
           }
-          await client.mutate({
+          const result = await client.mutate({
             mutation: InviteMembersMutation,
             variables: {
               input: {
@@ -111,7 +113,18 @@ export function InviteDialog(props: {
             },
           });
           state.close();
-          toast.success("Invitations sent successfully");
+          if (config.email.enabled) {
+            toast.success("Invitations sent successfully");
+          } else {
+            const inviteLinks =
+              result.data?.inviteMembers.map((invite) => invite.inviteLink) ??
+              [];
+            toast.success(
+              inviteLinks.length > 0
+                ? `Invitations created. Copy links from the pending invitations list.`
+                : "Invitations created",
+            );
+          }
         }}
         noValidate
       >
@@ -120,6 +133,9 @@ export function InviteDialog(props: {
           <DialogText>
             Invite new members to your team by sharing the invite link below or
             by entering their email addresses.
+            {!config.email.enabled && (
+              <> Email delivery is disabled; invite emails will not be sent.</>
+            )}
           </DialogText>
 
           <h3 className="text-low mb-2 font-medium">Invite Link</h3>

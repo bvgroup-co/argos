@@ -74,6 +74,7 @@
     "graphql-tag": "^2.12.6",
     "happy-dom": "^20.9.0",
     "helmet": "^8.2.0",
+    "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "knex": "^3.2.10",
     "lodash-es": "catalog:",

@@ -10,6 +10,7 @@ import { Build, BuildShard, Project } from "@/database/models";
 import { factory, setupDatabase } from "@/database/testing";
 import { quitAmqp } from "@/job-core";
 import { getS3Client } from "@/storage";
+import { describeWithAwsCredentials } from "@/storage/testing";
 import { setupRedis } from "@/util/redis/testing";
 
 import { createApp } from "./app";
@@ -130,7 +131,7 @@ describe("api v2", () => {
       });
     });
 
-    describe("with valid project", () => {
+    describeWithAwsCredentials("with valid project", () => {
       let project: Project;
 
       beforeEach(async () => {
@@ -337,7 +338,7 @@ describe("api v2", () => {
       });
     });
 
-    describe("complete workflow — single", () => {
+    describeWithAwsCredentials("complete workflow — single", () => {
       let project: Project;
 
       beforeEach(async () => {
@@ -607,7 +608,7 @@ describe("api v2", () => {
       });
     });
 
-    describe("complete workflow — parallel", () => {
+    describeWithAwsCredentials("complete workflow — parallel", () => {
       let project: Project;
 
       const screenshotGroups = [
@@ -639,7 +640,7 @@ describe("api v2", () => {
         });
       });
 
-      it("create a complete build", async () => {
+      it("create a complete parallel build", async () => {
         const updateResults = await Promise.all(
           screenshotGroups.map(async (screenshots) => {
             const createResult = await request(app)

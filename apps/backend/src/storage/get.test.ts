@@ -1,23 +1,25 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { S3Client } from "@aws-sdk/client-s3";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { S3Client } from "@aws-sdk/client-s3";
+import { afterAll, beforeAll, expect, it } from "vitest";
 
 import config from "@/config";
 
 import { get } from "./get";
+import { createS3TestClient, describeWithAwsCredentials } from "./testing";
 import { uploadFromFilePath } from "./upload";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
-describe("#get", () => {
-  const s3 = new S3Client({ region: "eu-west-1" });
+describeWithAwsCredentials("#get", () => {
+  let s3: S3Client;
 
   afterAll(() => {
     s3.destroy();
   });
 
   beforeAll(async () => {
+    s3 = createS3TestClient("eu-west-1");
     await uploadFromFilePath({
       s3,
       Bucket: config.get("s3.screenshotsBucket"),

@@ -9,9 +9,11 @@ import { useForm } from "react-hook-form";
 import { useLocation } from "react-router-dom";
 import z from "zod";
 
+import { config } from "@/config";
 import { GitHubLoginButton } from "@/containers/GitHub";
 import { GitLabLoginButton } from "@/containers/GitLab";
 import { GoogleLoginButton } from "@/containers/Google";
+import { OidcLoginButton } from "@/containers/Oidc";
 import { graphql } from "@/gql";
 import { ButtonIcon } from "@/ui/Button";
 import { Form } from "@/ui/Form";
@@ -173,12 +175,24 @@ function ProvidersScreen(props: {
       >
         Continue with GitLab
       </GitLabLoginButton>
-      <LinkButton
-        className="mt-2 w-full text-center"
-        onPress={onContinueWithEmail}
-      >
-        Continue with Email →
-      </LinkButton>
+      {config.oidc.enabled && (
+        <OidcLoginButton
+          redirect={redirect}
+          size="large"
+          className="w-full justify-center"
+          onPress={() => setLastLoginMethod("oidc")}
+        >
+          Continue with SSO
+        </OidcLoginButton>
+      )}
+      {config.email.enabled && (
+        <LinkButton
+          className="mt-2 w-full text-center"
+          onPress={onContinueWithEmail}
+        >
+          Continue with Email →
+        </LinkButton>
+      )}
     </div>
   );
 }
