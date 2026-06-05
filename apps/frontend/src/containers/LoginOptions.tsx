@@ -9,6 +9,11 @@ import { useLocation } from "react-router-dom";
 import { z } from "zod";
 
 import { config } from "@/config";
+import {
+  getAuthProviderOptions,
+  getOidcLoginLabel,
+  type AuthProviderOption,
+} from "@/containers/auth-provider-options";
 import { GitHubLoginButton } from "@/containers/GitHub";
 import { GitLabLoginButton } from "@/containers/GitLab";
 import { GoogleLoginButton } from "@/containers/Google";
@@ -41,6 +46,19 @@ export function LoginOptions(props: {
   const [lastLoginMethod, setLastLoginMethod] = useAtom(lastLoginMethodAtom);
   switch (screen) {
     case "providers": {
+      const providerOptions = getAuthProviderOptions(config);
+
+      if (providerOptions.length === 1 && providerOptions[0] === "oidc") {
+        return (
+          <OidcProviderOptions
+            redirect={redirect}
+            isDisabled={props.isDisabled}
+            isLastUsed={lastLoginMethod === "oidc"}
+            onPress={() => setLastLoginMethod("oidc")}
+          />
+        );
+      }
+
       return (
         <div className="flex w-full flex-col gap-6">
           <EmailForm
@@ -54,61 +72,22 @@ export function LoginOptions(props: {
           />
           <Separator />
           <div className="flex flex-col gap-4">
-            <LastUsedIndicator isEnabled={lastLoginMethod === "google"}>
-              <GoogleLoginButton
+            {providerOptions.map((provider) => (
+              <ProviderButton
+                key={provider}
+                provider={provider}
                 redirect={redirect}
-                size="large"
-                className="w-full justify-center"
                 isDisabled={props.isDisabled}
-                onPress={() => setLastLoginMethod("google")}
-              >
-                Continue with Google
-              </GoogleLoginButton>
-            </LastUsedIndicator>
-            {config.oidc.enabled && (
-              <LastUsedIndicator isEnabled={lastLoginMethod === "oidc"}>
-                <OidcLoginButton
-                  redirect={redirect}
-                  size="large"
-                  className="w-full justify-center"
-                  isDisabled={props.isDisabled}
-                  onPress={() => setLastLoginMethod("oidc")}
-                >
-                  Continue with SSO
-                </OidcLoginButton>
-              </LastUsedIndicator>
-            )}
-            <LastUsedIndicator isEnabled={lastLoginMethod === "github"}>
-              <GitHubLoginButton
-                redirect={redirect}
-                size="large"
-                className="w-full justify-center"
-                isDisabled={props.isDisabled}
-                onPress={() => setLastLoginMethod("github")}
-              >
-                Continue with GitHub
-              </GitHubLoginButton>
-            </LastUsedIndicator>
-            <LastUsedIndicator isEnabled={lastLoginMethod === "gitlab"}>
-              <GitLabLoginButton
-                redirect={redirect}
-                size="large"
-                className="w-full justify-center"
-                isDisabled={props.isDisabled}
-                onPress={() => setLastLoginMethod("gitlab")}
-              >
-                Continue with GitLab
-              </GitLabLoginButton>
-            </LastUsedIndicator>
-            <Button
-              variant="secondary"
-              size="large"
-              className="w-full justify-center"
-              isDisabled={props.isDisabled}
-              onPress={() => setScreen("saml")}
-            >
-              Continue with SAML SSO
-            </Button>
+                isLastUsed={lastLoginMethod === provider}
+                onPress={() => {
+                  if (provider === "saml") {
+                    setScreen("saml");
+                  } else {
+                    setLastLoginMethod(provider);
+                  }
+                }}
+              />
+            ))}
           </div>
         </div>
       );
@@ -142,6 +121,112 @@ export function LoginOptions(props: {
     }
     default:
       assertNever(screen);
+  }
+}
+
+function OidcProviderOptions(props: {
+  redirect?: string | null;
+  isDisabled?: boolean;
+  isLastUsed?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <div className="flex w-full flex-col gap-4">
+      {config.oidc.enabled && (
+        <LastUsedIndicator isEnabled={props.isLastUsed ?? false}>
+          <OidcLoginButton
+            redirect={props.redirect}
+            size="large"
+            className="w-full justify-center"
+            isDisabled={props.isDisabled}
+            onPress={props.onPress}
+          >
+            {getOidcLoginLabel(config)}
+          </OidcLoginButton>
+        </LastUsedIndicator>
+      )}
+    </div>
+  );
+}
+
+function ProviderButton(props: {
+  provider: AuthProviderOption;
+  redirect?: string | null;
+  isDisabled?: boolean;
+  isLastUsed: boolean;
+  onPress: () => void;
+}) {
+  switch (props.provider) {
+    case "google":
+      return (
+        <LastUsedIndicator isEnabled={props.isLastUsed}>
+          <GoogleLoginButton
+            redirect={props.redirect}
+            size="large"
+            className="w-full justify-center"
+            isDisabled={props.isDisabled}
+            onPress={props.onPress}
+          >
+            Continue with Google
+          </GoogleLoginButton>
+        </LastUsedIndicator>
+      );
+    case "oidc":
+      return (
+        <LastUsedIndicator isEnabled={props.isLastUsed}>
+          <OidcLoginButton
+            redirect={props.redirect}
+            size="large"
+            className="w-full justify-center"
+            isDisabled={props.isDisabled}
+            onPress={props.onPress}
+          >
+            {getOidcLoginLabel(config)}
+          </OidcLoginButton>
+        </LastUsedIndicator>
+      );
+    case "github":
+      return (
+        <LastUsedIndicator isEnabled={props.isLastUsed}>
+          <GitHubLoginButton
+            redirect={props.redirect}
+            size="large"
+            className="w-full justify-center"
+            isDisabled={props.isDisabled}
+            onPress={props.onPress}
+          >
+            Continue with GitHub
+          </GitHubLoginButton>
+        </LastUsedIndicator>
+      );
+    case "gitlab":
+      return (
+        <LastUsedIndicator isEnabled={props.isLastUsed}>
+          <GitLabLoginButton
+            redirect={props.redirect}
+            size="large"
+            className="w-full justify-center"
+            isDisabled={props.isDisabled}
+            onPress={props.onPress}
+          >
+            Continue with GitLab
+          </GitLabLoginButton>
+        </LastUsedIndicator>
+      );
+    case "saml":
+      return (
+        <Button
+          variant="secondary"
+          size="large"
+          className="w-full justify-center"
+          isDisabled={props.isDisabled}
+          onPress={props.onPress}
+        >
+          Continue with SAML SSO
+        </Button>
+      );
+    default:
+      assertNever(props.provider);
   }
 }
 

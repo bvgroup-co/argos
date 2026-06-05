@@ -1,5 +1,7 @@
 import { KeyRoundIcon } from "lucide-react";
 
+import { config } from "@/config";
+import { getOidcLoginLabel } from "@/containers/auth-provider-options";
 import { ButtonIcon, LinkButton, LinkButtonProps } from "@/ui/Button";
 import { getOAuthURL } from "@/util/oauth";
 
@@ -20,7 +22,7 @@ export function OidcLoginButton({
       <ButtonIcon>
         <KeyRoundIcon />
       </ButtonIcon>
-      {children ?? "Login with SSO"}
+      {children ?? getOidcLoginLabel(config)}
     </LinkButton>
   );
 }

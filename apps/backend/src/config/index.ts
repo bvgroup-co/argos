@@ -228,6 +228,12 @@ export function createConfig() {
       },
     },
     oidc: {
+      displayName: {
+        doc: "OpenID Connect display name shown in the frontend.",
+        format: String,
+        default: "SSO",
+        env: "OIDC_DISPLAY_NAME",
+      },
       enabled: {
         doc: "Whether generic OpenID Connect authentication is enabled.",
         format: Boolean,
