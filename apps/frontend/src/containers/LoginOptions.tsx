@@ -140,7 +140,9 @@ function OidcProviderOptions(props: {
             className="w-full justify-center"
             isDisabled={props.isDisabled}
             onPress={props.onPress}
-          />
+          >
+            {getOidcLoginLabel(config)}
+          </OidcLoginButton>
         </LastUsedIndicator>
       )}
     </div>
