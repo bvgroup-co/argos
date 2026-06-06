@@ -3,7 +3,7 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import config from "@/config";
-import { Account, TeamUser } from "@/database/models";
+import { Account, Plan, TeamUser } from "@/database/models";
 import { factory, setupDatabase } from "@/database/testing";
 import { stripe } from "@/stripe";
 
@@ -26,6 +26,31 @@ const createTeamMutation = `
 const originalStripeEnabled = config.get("stripe.enabled");
 const originalStripeApiKey = config.get("stripe.apiKey");
 
+async function createTeam(apiKey: string) {
+  config.set("stripe.enabled", true);
+  config.set("stripe.apiKey", apiKey);
+  const userAccount = await factory.UserAccount.create();
+  await userAccount.$fetchGraph("user");
+
+  const app = await createApolloServerApp(
+    apolloServer,
+    createApolloMiddleware,
+    {
+      user: userAccount.user!,
+      account: userAccount,
+    },
+  );
+
+  const res = await request(app)
+    .post("/graphql")
+    .send({
+      query: createTeamMutation,
+      variables: { name: "agyn" },
+    });
+
+  return { res, userAccount };
+}
+
 describe("GraphQL createTeam", () => {
   beforeEach(async () => {
     await setupDatabase();
@@ -41,26 +66,7 @@ describe("GraphQL createTeam", () => {
   });
 
   it("creates a team directly when Stripe billing uses the unconfigured sentinel", async () => {
-    config.set("stripe.enabled", true);
-    config.set("stripe.apiKey", "no-api-key");
-    const userAccount = await factory.UserAccount.create();
-    await userAccount.$fetchGraph("user");
-
-    const app = await createApolloServerApp(
-      apolloServer,
-      createApolloMiddleware,
-      {
-        user: userAccount.user!,
-        account: userAccount,
-      },
-    );
-
-    const res = await request(app)
-      .post("/graphql")
-      .send({
-        query: createTeamMutation,
-        variables: { name: "agyn" },
-      });
+    const { res, userAccount } = await createTeam("no-api-key");
 
     expect(res.status).toBe(200);
     expectNoGraphQLError(res);
@@ -82,27 +88,20 @@ describe("GraphQL createTeam", () => {
     ).resolves.toBeTruthy();
   });
 
-  it("creates a team directly when Stripe API key is blank", async () => {
-    config.set("stripe.enabled", true);
-    config.set("stripe.apiKey", "  ");
-    const userAccount = await factory.UserAccount.create();
-    await userAccount.$fetchGraph("user");
+  it("creates a team directly when Stripe API key is empty", async () => {
+    const { res } = await createTeam("");
 
-    const app = await createApolloServerApp(
-      apolloServer,
-      createApolloMiddleware,
-      {
-        user: userAccount.user!,
-        account: userAccount,
-      },
-    );
+    expect(res.status).toBe(200);
+    expectNoGraphQLError(res);
+    expect(res.body.data.createTeam).toMatchObject({
+      redirectUrl: "http://localhost:3000/agyn",
+      team: { slug: "agyn" },
+    });
+    await expect(Plan.query().resultSize()).resolves.toBe(0);
+  });
 
-    const res = await request(app)
-      .post("/graphql")
-      .send({
-        query: createTeamMutation,
-        variables: { name: "agyn" },
-      });
+  it("creates a team directly when Stripe API key is whitespace", async () => {
+    const { res } = await createTeam("  ");
 
     expect(res.status).toBe(200);
     expectNoGraphQLError(res);
