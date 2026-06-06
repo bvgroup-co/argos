@@ -419,6 +419,12 @@ export function createConfig() {
       },
     },
     stripe: {
+      enabled: {
+        doc: "Whether Stripe billing is enabled for team subscriptions.",
+        format: Boolean,
+        default: true,
+        env: "STRIPE_ENABLED",
+      },
       url: {
         doc: "Stripe URL",
         format: String,
