@@ -48,6 +48,7 @@ import {
   getSubscriptionData,
   stripe,
 } from "@/stripe";
+import { checkIsStripeTeamBillingEnabled } from "@/stripe/config";
 import { getSlugFromEmail, sanitizeEmail } from "@/util/email";
 
 import {
@@ -71,12 +72,6 @@ const { gql } = gqlTag;
 
 const getTeamUrl = (teamAccount: Account) => {
   return new URL(`/${teamAccount.slug}`, config.get("server.url")).href;
-};
-
-const checkIsStripeTeamBillingEnabled = () => {
-  return (
-    config.get("stripe.enabled") && config.get("stripe.apiKey") !== "no-api-key"
-  );
 };
 
 export const typeDefs = gql`

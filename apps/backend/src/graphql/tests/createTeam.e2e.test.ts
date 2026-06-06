@@ -40,7 +40,7 @@ describe("GraphQL createTeam", () => {
     config.set("stripe.apiKey", originalStripeApiKey);
   });
 
-  it("creates a team directly when Stripe billing is unconfigured", async () => {
+  it("creates a team directly when Stripe billing uses the unconfigured sentinel", async () => {
     config.set("stripe.enabled", true);
     config.set("stripe.apiKey", "no-api-key");
     const userAccount = await factory.UserAccount.create();
@@ -80,6 +80,36 @@ describe("GraphQL createTeam", () => {
         userLevel: "owner",
       }),
     ).resolves.toBeTruthy();
+  });
+
+  it("creates a team directly when Stripe API key is blank", async () => {
+    config.set("stripe.enabled", true);
+    config.set("stripe.apiKey", "  ");
+    const userAccount = await factory.UserAccount.create();
+    await userAccount.$fetchGraph("user");
+
+    const app = await createApolloServerApp(
+      apolloServer,
+      createApolloMiddleware,
+      {
+        user: userAccount.user!,
+        account: userAccount,
+      },
+    );
+
+    const res = await request(app)
+      .post("/graphql")
+      .send({
+        query: createTeamMutation,
+        variables: { name: "agyn" },
+      });
+
+    expect(res.status).toBe(200);
+    expectNoGraphQLError(res);
+    expect(res.body.data.createTeam).toMatchObject({
+      redirectUrl: "http://localhost:3000/agyn",
+      team: { slug: "agyn" },
+    });
   });
 
   it("returns an actionable error when billing is enabled without a Pro plan", async () => {
