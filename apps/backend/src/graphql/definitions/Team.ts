@@ -2,6 +2,7 @@ import { invariant } from "@argos/util/invariant";
 import { omitUndefinedValues } from "@argos/util/omitUndefinedValues";
 import { captureException } from "@sentry/node";
 import gqlTag from "graphql-tag";
+import { NotFoundError } from "objection";
 
 import {
   checkHasAccessToSAML,
@@ -67,6 +68,16 @@ import { commonAccountResolvers } from "./Account";
 import { paginateResult } from "./PageInfo";
 
 const { gql } = gqlTag;
+
+const getTeamUrl = (teamAccount: Account) => {
+  return new URL(`/${teamAccount.slug}`, config.get("server.url")).href;
+};
+
+const checkIsStripeTeamBillingEnabled = () => {
+  return (
+    config.get("stripe.enabled") && config.get("stripe.apiKey") !== "no-api-key"
+  );
+};
 
 export const typeDefs = gql`
   enum TeamMembersOrderBy {
@@ -849,13 +860,26 @@ export const resolvers: IResolvers = {
         ownerId: auth.user.id,
       });
 
+      const teamUrl = getTeamUrl(teamAccount);
+
+      if (!checkIsStripeTeamBillingEnabled()) {
+        return {
+          team: teamAccount,
+          redirectUrl: teamUrl,
+        };
+      }
+
       const [hasSubscribedToTrial, plan] = await Promise.all([
         auth.account.$checkHasSubscribedToTrial(),
-        getStripeProPlanOrThrow(),
+        getStripeProPlanOrThrow().catch((error: unknown) => {
+          if (!(error instanceof NotFoundError)) {
+            throw error;
+          }
+          throw badUserInput(
+            "Stripe billing is enabled but the Pro billing plan is not configured.",
+          );
+        }),
       ]);
-
-      const teamUrl = new URL(`/${teamAccount.slug}`, config.get("server.url"))
-        .href;
 
       const redirectToStripe = async ({ trial }: { trial: boolean }) => {
         const session = await createStripeCheckoutSession({
@@ -936,8 +960,7 @@ export const resolvers: IResolvers = {
         throw badUserInput("This team can only extend the trial period once.");
       }
 
-      const teamUrl = new URL(`/${teamAccount.slug}`, config.get("server.url"))
-        .href;
+      const teamUrl = getTeamUrl(teamAccount);
 
       const stripeCustomerId = await getCustomerIdFromUserAccount(auth.account);
 
